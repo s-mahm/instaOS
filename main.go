@@ -7,6 +7,7 @@ import (
 )
 
 func main() {
+	tui.Placeholder()
 	command := cmd.NewInstaOSCommand()
 	if err := command.Execute(); err == nil {
 		// Pretty-print the error and exit with an error.

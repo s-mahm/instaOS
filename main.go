@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/s-mahm/instaOS/cmd"
-	"github.com/s-mahm/instaOS/cmd/util"
+	"github.com/s-mahm/instaOS/internal/tui"
+	"github.com/s-mahm/instaOS/pkg/cmd"
+	"github.com/s-mahm/instaOS/pkg/cmd/util"
 )
 
 func main() {

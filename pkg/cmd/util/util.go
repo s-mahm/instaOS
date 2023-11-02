@@ -33,7 +33,6 @@ func checkErr(err error, handleErr func(string, int)) {
 	case err == ErrExit:
 		handleErr("", DefaultErrorExitCode)
 	default:
-		fmt.Println(err == fmt.Errorf("exit"))
 		msg := err.Error()
 		if !strings.HasPrefix(msg, "error: ") {
 			msg = fmt.Sprintf("error: %s", msg)

@@ -14,6 +14,8 @@ func GenerateTemplates(cmd *cobra.Command) {
 		panic("nil root command")
 	}
 	cmd.SilenceUsage = true
+	cmd.PersistentFlags().BoolP("help", "h", false, "Print usage")
+	cmd.PersistentFlags().Lookup("help").Hidden = true
 	cmd.SetUsageFunc(usageFunc())
 	cmd.SetHelpFunc(helpFunc())
 }
@@ -23,6 +25,7 @@ func usageFunc() func(*cobra.Command) error {
 		t := template.New("usage")
 		t.Funcs(template.FuncMap{
 			"commandsAvailable": commandsAvailable,
+			"flagsAvailable":    flagsAvailable,
 		})
 		template.Must(t.Parse(usageTemplate))
 		return t.Execute(os.Stdout, c)
@@ -54,16 +57,27 @@ func commandsAvailable(c *cobra.Command) string {
 	return strings.Join(cmds, "\n")
 }
 
+func flagsAvailable(c *cobra.Command) string {
+	return c.Flags().FlagUsagesWrapped(120)
+}
+
 const usageTemplate = `Usage:
 
 {{- if not .HasSubCommands}}  {{.UseLine}}{{end}}
 {{- if .HasSubCommands}}  {{ .CommandPath}}{{- if .HasAvailableFlags}} [flags]{{end}} [commands]{{end}}
 
 {{- if .HasSubCommands}}
+
 Commands:
 {{commandsAvailable .}}
 {{- end}}
 
+
+{{- if .HasAvailableFlags}}
+
+Options:
+{{flagsAvailable .}}
+{{- end}}
 
 Use "instaOS <command> --help" for more information about a given command.
 

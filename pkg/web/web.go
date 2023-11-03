@@ -34,9 +34,9 @@ func GetRequest(client *http.Client, endpoint string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	} else if response.StatusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("404 not found - %s", endpoint)
+		return nil, fmt.Errorf("404 not found: %s", endpoint)
 	} else if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%s error code - %s", response.Status, endpoint)
+		return nil, fmt.Errorf("%s error code: %s", response.Status, endpoint)
 	}
 
 	defer response.Body.Close()
@@ -68,9 +68,9 @@ func DownloadFile(client *http.Client, endpoint string, dirpath string) error {
 	if err != nil {
 		return err
 	} else if response.StatusCode == http.StatusNotFound {
-		return fmt.Errorf("404 not found - %s", endpoint)
+		return fmt.Errorf("404 not found: %s", endpoint)
 	} else if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("%s error code - %s", response.Status, endpoint)
+		return fmt.Errorf("%s error code: %s", response.Status, endpoint)
 	}
 
 	defer response.Body.Close()

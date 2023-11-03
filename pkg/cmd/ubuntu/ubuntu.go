@@ -2,6 +2,8 @@ package ubuntu
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/s-mahm/instaOS/pkg/cmd/util"
 	"github.com/s-mahm/instaOS/pkg/util/flash"
 	"github.com/spf13/cobra"
@@ -33,14 +35,22 @@ func NewCmdUbuntu() *cobra.Command {
 			util.CheckErr(o.Run(args))
 		},
 	}
-	cmd.Flags().StringVarP(&o.Flash, "flash", "f", "", "Required device to flash to (e.g. /dev/sda)")
+	cmd.Flags().StringVarP(&o.Flash, "flash", "f", "", "Required device to flash to (e.g. /dev/sda).")
 	cmd.MarkFlagRequired("flash")
-	cmd.Flags().StringVarP(&o.Destination, "destination", "d", "", "Optional destination directory to download iso file to")
-	cmd.Flags().StringVarP(&o.Source, "source", "s", "", "Optional source iso to use")
+	cmd.Flags().StringVarP(&o.Destination, "destination", "d", defaultDir(), "Optional destination directory to download iso file to.")
+	cmd.Flags().StringVarP(&o.Source, "source", "s", "", "Optional source iso to use.")
+	cmd.Flags().StringVarP(&o.Version, "version", "v", "22.04", "Optional Ubuntu version to install and flash.\nCannot be used with source flag")
+	cmd.MarkFlagsMutuallyExclusive("source", "version")
 	return cmd
 }
 
 func (o *UbuntuOptions) Complete() error {
+	switch o.Version {
+	case "22.04", "20.04":
+	default:
+		return fmt.Errorf("invalid version %s", o.Version)
+	}
+
 	if err := flash.IsValidFlashDevice(o.Flash); err != nil {
 		return err
 	}
@@ -53,8 +63,16 @@ func (o *UbuntuOptions) Complete() error {
 }
 
 func (o *UbuntuOptions) Run(args []string) error {
-	fmt.Println("")
-
-	flash.GetFlashDevices()
+	err := DownloadUbuntuISO(o.Version, o.Destination)
+	if err != nil {
+		return err
+	}
 	return nil
+}
+
+func defaultDir() string {
+	if current_dir, err := os.Getwd(); err == nil {
+		return current_dir
+	}
+	return ""
 }

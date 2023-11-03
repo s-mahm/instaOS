@@ -1,9 +1,11 @@
 package flash
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"math"
+	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -15,18 +17,21 @@ var (
 )
 
 func IsValidFlashDevice(device string) error {
-	deviceModelVerifier := "ID_USB_MODEL=Flash_Disk"
+	device_model_verifier := "ID_USB_MODEL=Flash_Disk"
+	if _, err := os.Stat(device); errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("no device %s found", device)
+	}
 	cmd := "udevadm"
 	args := []string{"info", "-q", "property", "-n", device}
 	out, err := exec.Command(cmd, args...).Output()
 	if err != nil {
-		return fmt.Errorf("checking device %s: %s", device, err)
+		return fmt.Errorf("checking device %s - %s", device, err)
 	}
-	if !strings.Contains(string(out), deviceModelVerifier) {
+	if !strings.Contains(string(out), device_model_verifier) {
 		return fmt.Errorf("invalid flash device %s", device)
 	} else {
-		deviceTypeVerifier := "DEVTYPE=disk"
-		if !strings.Contains(string(out), deviceTypeVerifier) {
+		device_type_verifier := "DEVTYPE=disk"
+		if !strings.Contains(string(out), device_type_verifier) {
 			return fmt.Errorf("please provide the device identifier excluding it's partition (i.e. /dev/sdb not /dev/sdb1)")
 		}
 	}
@@ -34,16 +39,16 @@ func IsValidFlashDevice(device string) error {
 }
 
 func GetFlashDeviceInfo(device string) (string, error) {
-	dfPattern, err := regexp.Compile(fmt.Sprintf(`(?m)^%s\d\s+(\d+)\s+\d+\s+\d+.*%%\s(.*)$`, device))
+	df_pattern, err := regexp.Compile(fmt.Sprintf(`(?m)^%s\d\s+(\d+)\s+\d+\s+\d+.*%%\s(.*)$`, device))
 	if err != nil {
-		return "", fmt.Errorf("getting device %s info: %s", device, err)
+		return "", fmt.Errorf("getting device %s info - %s", device, err)
 	}
 	cmd := "df"
 	out, err := exec.Command(cmd).Output()
 	if err != nil {
-		return "", fmt.Errorf("calling df: %s", err)
+		return "", fmt.Errorf("calling df - %s", err)
 	}
-	matches := dfPattern.FindStringSubmatch(string(out))
+	matches := df_pattern.FindStringSubmatch(string(out))
 	if len(matches) == 0 {
 		return "", fmt.Errorf("device %s not found in df output", device)
 	}
@@ -55,8 +60,4 @@ func GetFlashDeviceInfo(device string) (string, error) {
 		fmt.Printf("Flash device %s found with capacity %.1fGB\n", device, capacity)
 	}
 	return matches[2], nil
-}
-
-func GetFlashDevices() {
-
 }

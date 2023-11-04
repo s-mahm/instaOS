@@ -36,13 +36,10 @@ func NewCmdUbuntu() *cobra.Command {
 			util.CheckErr(o.Run(args))
 		},
 	}
-	cmd.Flags().StringVarP(&o.Flash, "flash", "f", "", "Required device to flash to (e.g. /dev/sda).")
+	cmd.Flags().StringVarP(&o.Flash, "flash", "f", "", "Required device to flash to (e.g. /dev/sda)")
 	cmd.MarkFlagRequired("flash")
-	cmd.Flags().StringVarP(&o.Destination, "destination", "d", "",
-		"Optional destination directory to download files to.\n"+
-			"Dircectory will be created if it doesn't exist.")
-	cmd.Flags().StringVarP(&o.Source, "source", "s", "", "Optional source iso to use.")
-	cmd.Flags().StringVarP(&o.Version, "version", "v", "22.04", "Optional Ubuntu version to install and flash.\nCannot be used with source flag")
+	cmd.Flags().StringVarP(&o.Source, "source", "s", "", "Optional source iso to use")
+	cmd.Flags().StringVarP(&o.Version, "version", "v", "22.04", "Optional Ubuntu version to install and flash\nCannot be used with source flag")
 	cmd.MarkFlagsMutuallyExclusive("source", "version")
 	return cmd
 }
@@ -60,9 +57,7 @@ func (o *UbuntuOptions) Complete() error {
 	if err != nil {
 		return err
 	}
-	if len(o.Destination) == 0 {
-		o.Destination = defaultDir()
-	}
+	o.Destination = defaultDir()
 	if _, err = os.ReadDir(o.Destination); errors.Is(err, os.ErrNotExist) {
 		if err := os.Mkdir(o.Destination, os.ModePerm); err != nil {
 			return fmt.Errorf("trying to create directory %s: %s", o.Destination, err)
@@ -75,10 +70,11 @@ func (o *UbuntuOptions) Complete() error {
 }
 
 func (o *UbuntuOptions) Run(args []string) error {
-	if err := DownloadUbuntuISO(o.Version, o.Destination); err != nil {
+	iso_filename, err := DownloadUbuntuISO(o.Version, o.Destination)
+	if err != nil {
 		return err
 	}
-	if err := VerifyISO(); err != nil {
+	if err := VerifyISO(iso_filename, o.Version, o.Destination); err != nil {
 		return err
 	}
 	return nil

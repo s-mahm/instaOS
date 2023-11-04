@@ -12,9 +12,6 @@ import (
 )
 
 func HttpClient(timeout time.Duration) *http.Client {
-	if timeout == 0 {
-		timeout = 10
-	}
 	client := &http.Client{
 		Transport: &http.Transport{
 			MaxIdleConnsPerHost: 20,

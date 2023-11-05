@@ -4,8 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
+	"strings"
 
+	"github.com/s-mahm/instaOS/pkg/util/file"
 	"github.com/s-mahm/instaOS/pkg/web"
 )
 
@@ -51,4 +55,46 @@ func isoAlreadyExists(destination string, iso_name string) bool {
 		return false
 	}
 	return true
+}
+
+func CreateInstaISO(filename string, version string, destination string) error {
+	temp, err := os.MkdirTemp("files", fmt.Sprintf("ubuntu-%s-", version))
+	if err != nil {
+		return fmt.Errorf("creating temp dir: %s", err)
+	}
+	// defer os.RemoveAll(temp)
+	extractISOToDirectory(filename, destination, temp)
+	files_to_edit := func(prefix string, files []string) []string {
+		for i, filename := range files {
+			files[i] = fmt.Sprintf("%s/%s", prefix, filename)
+		}
+		return files
+	}
+	if err = file.ReplaceTextInFiles(files_to_edit(temp, []string{"boot/grub/grub.cfg", "boot/grub/loopback.cfg"}), "---", `autoinstall ds=nocloud\;s=/cdrom/server/  ---`); err != nil {
+		return fmt.Errorf("error editing iso files: %s", err)
+	}
+	return nil
+}
+
+func extractISOToDirectory(filename string, destination string, dirpath string) error {
+	xorriso_args := fmt.Sprintf("-osirrox on -indev %s/%s -extract / %s", destination, filename, dirpath)
+	cmd := exec.Command("xorriso", strings.Split(xorriso_args, " ")...)
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("xorriso error: %s", err)
+	}
+	err = filepath.Walk(dirpath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		return os.Chmod(path, os.FileMode(0755))
+	})
+	if err != nil {
+		return fmt.Errorf("setting directory permissions: %s", err)
+	}
+	return nil
+}
+
+func getUserData() {
+	return
 }

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/s-mahm/instaOS/pkg/cmd/util"
 	"github.com/s-mahm/instaOS/pkg/util/flash"
@@ -38,13 +39,22 @@ func NewCmdUbuntu() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&o.Flash, "flash", "f", "", "Required device to flash to (e.g. /dev/sda)")
 	cmd.MarkFlagRequired("flash")
-	cmd.Flags().StringVarP(&o.Source, "source", "s", "", "Optional source iso to use")
-	cmd.Flags().StringVarP(&o.Version, "version", "v", "22.04", "Optional Ubuntu version to install and flash\nCannot be used with source flag")
+	cmd.Flags().StringVarP(&o.Source, "source", "s", "", "Source iso to use. By default the latest daily ISO for Ubuntu will be downloaded and saved in a \"files\" directory (created if not exists)")
+	cmd.Flags().StringVarP(&o.Version, "version", "v", "22.04", "Ubuntu version to install and flash. Cannot be used with source flag")
+	cmd.Flags().StringVarP(&o.Source, "no-verify", "k", "",
+		"Disable GPG verification of the source ISO file. By default SHA256SUMS and SHA256SUMS.gpg from releases will be used to verify the authenticity and integrity of the source ISO file")
 	cmd.MarkFlagsMutuallyExclusive("source", "version")
 	return cmd
 }
 
 func (o *UbuntuOptions) Complete() error {
+	_, err := exec.LookPath("xorriso")
+	if err != nil {
+		return fmt.Errorf("package xorriso not found")
+	}
+	// if _, err := os.Stat("/usr/lib/ISOLINUX/isohdpfx.bin"); errors.Is(err, os.ErrNotExist) {
+	// 	return fmt.Errorf("isolinux package not found")
+	// }
 	switch o.Version {
 	case "22.04", "20.04":
 	default:
@@ -53,7 +63,7 @@ func (o *UbuntuOptions) Complete() error {
 	if err := flash.IsValidFlashDevice(o.Flash); err != nil {
 		return err
 	}
-	_, err := flash.GetFlashDeviceInfo(o.Flash)
+	_, err = flash.GetFlashDeviceInfo(o.Flash)
 	if err != nil {
 		return err
 	}
@@ -74,7 +84,11 @@ func (o *UbuntuOptions) Run(args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := VerifyISO(iso_filename, o.Version, o.Destination); err != nil {
+	// if err := VerifyISO(iso_filename, o.Version, o.Destination); err != nil {
+	// 	return err
+	// }
+	err = CreateInstaISO(iso_filename, o.Version, o.Destination)
+	if err != nil {
 		return err
 	}
 	return nil

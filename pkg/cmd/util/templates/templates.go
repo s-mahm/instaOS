@@ -58,7 +58,7 @@ func commandsAvailable(c *cobra.Command) string {
 }
 
 func flagsAvailable(c *cobra.Command) string {
-	return c.Flags().FlagUsagesWrapped(120)
+	return c.Flags().FlagUsagesWrapped(80)
 }
 
 const usageTemplate = `Usage:

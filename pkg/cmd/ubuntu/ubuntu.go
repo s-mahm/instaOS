@@ -12,15 +12,14 @@ import (
 )
 
 type UbuntuOptions struct {
-	Flash       string
-	Destination string
-	ExtraFile   string
-	MetaData    string
-	NoMD5       bool
-	UserData    string
-	Verbose     bool
-	Version     string
-	Source      string
+	Flash        string
+	ExtraFiles   string
+	UserDataPath string
+	UserData     UserData
+	Version      string
+	Destination  string
+	Source       string
+	NoVerify     bool
 }
 
 func NewUbuntuOptions() *UbuntuOptions {
@@ -41,9 +40,10 @@ func NewCmdUbuntu() *cobra.Command {
 	cmd.MarkFlagRequired("flash")
 	cmd.Flags().StringVarP(&o.Source, "source", "s", "", "Source iso to use. By default the latest daily ISO for Ubuntu will be downloaded and saved in a \"files\" directory (created if not exists)")
 	cmd.Flags().StringVarP(&o.Version, "version", "v", "22.04", "Ubuntu version to install and flash. Cannot be used with source flag")
-	cmd.Flags().StringVarP(&o.Source, "no-verify", "k", "",
-		"Disable GPG verification of the source ISO file. By default SHA256SUMS and SHA256SUMS.gpg from releases will be used to verify the authenticity and integrity of the source ISO file")
 	cmd.MarkFlagsMutuallyExclusive("source", "version")
+	cmd.Flags().BoolVarP(&o.NoVerify, "no-verify", "k", false,
+		"Disable GPG verification of the source ISO file. By default SHA256SUMS and SHA256SUMS.gpg from releases will be used to verify the authenticity and integrity of the source ISO file")
+	cmd.Flags().StringVarP(&o.UserDataPath, "userdata", "u", "", "user-data file to add. More info at https://ubuntu.com/server/docs/install/autoinstall-reference")
 	return cmd
 }
 
@@ -55,6 +55,9 @@ func (o *UbuntuOptions) Complete() error {
 	// if _, err := os.Stat("/usr/lib/ISOLINUX/isohdpfx.bin"); errors.Is(err, os.ErrNotExist) {
 	// 	return fmt.Errorf("isolinux package not found")
 	// }
+	if len(o.UserDataPath) == 0 {
+		o.UserData = DefaultUserData()
+	}
 	switch o.Version {
 	case "22.04", "20.04":
 	default:
@@ -84,10 +87,12 @@ func (o *UbuntuOptions) Run(args []string) error {
 	if err != nil {
 		return err
 	}
-	// if err := VerifyISO(iso_filename, o.Version, o.Destination); err != nil {
-	// 	return err
-	// }
-	err = CreateInstaISO(iso_filename, o.Version, o.Destination)
+	if !o.NoVerify {
+		if err := VerifyISO(iso_filename, o.Version, o.Destination); err != nil {
+			return err
+		}
+	}
+	err = CreateInstaISO(iso_filename, o.Version, o.Destination, o.UserData)
 	if err != nil {
 		return err
 	}

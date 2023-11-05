@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/schollz/progressbar/v3"
 )
 
 func HttpClient(timeout time.Duration) *http.Client {
@@ -46,7 +48,7 @@ func GetRequest(client *http.Client, endpoint string) ([]byte, error) {
 	return body, nil
 }
 
-func DownloadFile(client *http.Client, endpoint string, dirpath string) error {
+func DownloadFile(client *http.Client, endpoint string, dirpath string, showprogress bool) error {
 	var (
 		fileName string
 		fullPath string
@@ -85,7 +87,15 @@ func DownloadFile(client *http.Client, endpoint string, dirpath string) error {
 
 	defer file.Close()
 
-	_, err = io.Copy(file, response.Body)
+	if showprogress {
+		bar := progressbar.DefaultBytes(
+			response.ContentLength,
+			"Downloading ISO",
+		)
+		_, err = io.Copy(io.MultiWriter(file, bar), response.Body)
+	} else {
+		_, err = io.Copy(file, response.Body)
+	}
 	if err != nil {
 		if os.IsTimeout(err) {
 			return fmt.Errorf("timeout exceeded")

@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/s-mahm/instaOS/pkg/util/file"
 	"github.com/s-mahm/instaOS/pkg/web"
 )
@@ -40,8 +42,7 @@ func DownloadUbuntuISO(version string, destination string) (string, error) {
 	if isoAlreadyExists(destination, iso_name) {
 		fmt.Printf("File %s already downloded, using existing file\n", iso_name)
 	} else {
-		fmt.Println("Downloading ", download_url)
-		err = web.DownloadFile(client, download_url, destination)
+		err = web.DownloadFile(client, download_url, destination, true)
 		if err != nil {
 			return "", fmt.Errorf("downloading iso from url: %s", err)
 		}
@@ -57,33 +58,44 @@ func isoAlreadyExists(destination string, iso_name string) bool {
 	return true
 }
 
-func CreateInstaISO(filename string, version string, destination string) error {
-	temp, err := os.MkdirTemp("files", fmt.Sprintf("ubuntu-%s-", version))
+func CreateInstaISO(filename string, version string, destination string, userdata UserData) error {
+	tempdir, err := os.MkdirTemp("files", fmt.Sprintf("ubuntu-%s-", version))
 	if err != nil {
 		return fmt.Errorf("creating temp dir: %s", err)
 	}
-	// defer os.RemoveAll(temp)
-	extractISOToDirectory(filename, destination, temp)
+	// defer os.RemoveAll(tempdir)
+	if err = extractISOToDirectory(filename, destination, tempdir); err != nil {
+		return err
+	}
 	files_to_edit := func(prefix string, files []string) []string {
 		for i, filename := range files {
 			files[i] = fmt.Sprintf("%s/%s", prefix, filename)
 		}
 		return files
 	}
-	if err = file.ReplaceTextInFiles(files_to_edit(temp, []string{"boot/grub/grub.cfg", "boot/grub/loopback.cfg"}), "---", `autoinstall ds=nocloud\;s=/cdrom/server/  ---`); err != nil {
+	if err = file.ReplaceTextInFiles(files_to_edit(tempdir, []string{"boot/grub/grub.cfg", "boot/grub/loopback.cfg"}), "---", `autoinstall ds=nocloud\;s=/cdrom/server/  ---`); err != nil {
 		return fmt.Errorf("error editing iso files: %s", err)
+	}
+	if err = os.Mkdir(fmt.Sprintf("%s/nocloud", tempdir), os.ModePerm); err != nil {
+		return fmt.Errorf("creating nocloud dircetory")
+	}
+	if err = AddUserData(userdata, fmt.Sprintf("%s/nocloud", tempdir)); err != nil {
+		return err
+	}
+	if err = createISOFromDirectory(fmt.Sprintf("%s/%s", destination, filename), tempdir, fmt.Sprintf("%s/ubuntu-%s-autoinstall.iso", destination, version)); err != nil {
+		return err
 	}
 	return nil
 }
 
-func extractISOToDirectory(filename string, destination string, dirpath string) error {
-	xorriso_args := fmt.Sprintf("-osirrox on -indev %s/%s -extract / %s", destination, filename, dirpath)
+func extractISOToDirectory(filename string, source string, destination string) error {
+	xorriso_args := fmt.Sprintf("-osirrox on -indev %s/%s -extract / %s", source, filename, destination)
 	cmd := exec.Command("xorriso", strings.Split(xorriso_args, " ")...)
 	err := cmd.Run()
 	if err != nil {
 		return fmt.Errorf("xorriso error: %s", err)
 	}
-	err = filepath.Walk(dirpath, func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(destination, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -95,6 +107,39 @@ func extractISOToDirectory(filename string, destination string, dirpath string) 
 	return nil
 }
 
-func getUserData() {
-	return
+func createISOFromDirectory(reference string, source string, isoname string) error {
+	xorriso_create_args := "-as mkisofs -r"
+	xorriso_ref_args := fmt.Sprintf("-indev %s -report_el_torito as_mkisofs", reference)
+	cmd := exec.Command("xorriso", strings.Split(xorriso_ref_args, " ")...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("xorriso error: %s", err)
+	}
+	flag_pattern, err := regexp.Compile(`(?m)^((?:-|--).*)$`)
+	matches := flag_pattern.FindAllStringSubmatch(string(out), -1)
+	for _, match := range matches {
+		xorriso_create_args = xorriso_create_args + " " + match[0]
+	}
+	xorriso_create_args = xorriso_create_args + " " + fmt.Sprintf("-o %s %s", isoname, source)
+	// xorriso_create_args = strings.ReplaceAll(xorriso_create_args, "'", "")
+	cmd = exec.Command("xorriso", strings.Split(xorriso_create_args, " ")...)
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		fmt.Println(string(out))
+		return fmt.Errorf("xorriso error: %s", err)
+	}
+
+	return nil
+}
+
+func AddUserData(userdata UserData, destination string) error {
+	userdata_yaml, err := yaml.Marshal(&userdata)
+	if err != nil {
+		return fmt.Errorf("marshaling user-data: %s", err)
+	}
+	err = os.WriteFile(fmt.Sprintf("%s/user-data", destination), userdata_yaml, 0755)
+	if err != nil {
+		return fmt.Errorf("writing to user-data: %s", err)
+	}
+	return nil
 }

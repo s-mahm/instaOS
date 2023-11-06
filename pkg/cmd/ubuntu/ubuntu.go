@@ -9,6 +9,7 @@ import (
 	"github.com/s-mahm/instaOS/pkg/cmd/util"
 	"github.com/s-mahm/instaOS/pkg/util/flash"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 type UbuntuOptions struct {
@@ -52,11 +53,17 @@ func (o *UbuntuOptions) Complete() error {
 	if err != nil {
 		return fmt.Errorf("package xorriso not found")
 	}
-	// if _, err := os.Stat("/usr/lib/ISOLINUX/isohdpfx.bin"); errors.Is(err, os.ErrNotExist) {
-	// 	return fmt.Errorf("isolinux package not found")
-	// }
 	if len(o.UserDataPath) == 0 {
 		o.UserData = DefaultUserData()
+	} else {
+		yaml_file, err := os.ReadFile(o.UserDataPath)
+		if err != nil {
+			return fmt.Errorf("opening yaml file: %s", err)
+		}
+		err = yaml.Unmarshal(yaml_file, &o.UserData)
+		if err != nil {
+			return fmt.Errorf("un-marshaling user-data: %s", err)
+		}
 	}
 	switch o.Version {
 	case "22.04", "20.04":

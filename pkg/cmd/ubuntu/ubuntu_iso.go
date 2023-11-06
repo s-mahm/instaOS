@@ -63,7 +63,7 @@ func CreateInstaISO(filename string, version string, destination string, userdat
 	if err != nil {
 		return fmt.Errorf("creating temp dir: %s", err)
 	}
-	// defer os.RemoveAll(tempdir)
+	defer os.RemoveAll(tempdir)
 	if err = extractISOToDirectory(filename, destination, tempdir); err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func extractISOToDirectory(filename string, source string, destination string) e
 }
 
 func createISOFromDirectory(reference string, source string, isoname string) error {
-	xorriso_create_args := "-as mkisofs -r"
+	xorriso_create_args := "-as mkisofs -r -V \"UBUNTU-AUTOINSTALL\""
 	xorriso_ref_args := fmt.Sprintf("-indev %s -report_el_torito as_mkisofs", reference)
 	cmd := exec.Command("xorriso", strings.Split(xorriso_ref_args, " ")...)
 	out, err := cmd.CombinedOutput()
@@ -118,13 +118,16 @@ func createISOFromDirectory(reference string, source string, isoname string) err
 	flag_pattern, err := regexp.Compile(`(?m)^((?:-|--).*)$`)
 	matches := flag_pattern.FindAllStringSubmatch(string(out), -1)
 	for _, match := range matches {
-		xorriso_create_args = xorriso_create_args + " " + match[0]
+		if !strings.HasPrefix(match[0], "-V") {
+			xorriso_create_args = xorriso_create_args + " " + match[0]
+		}
 	}
 	xorriso_create_args = xorriso_create_args + " " + fmt.Sprintf("-o %s %s", isoname, source)
-	// xorriso_create_args = strings.ReplaceAll(xorriso_create_args, "'", "")
+	xorriso_create_args = strings.ReplaceAll(xorriso_create_args, "'", "")
 	cmd = exec.Command("xorriso", strings.Split(xorriso_create_args, " ")...)
 	out, err = cmd.CombinedOutput()
 	if err != nil {
+		fmt.Println(cmd.Args)
 		fmt.Println(string(out))
 		return fmt.Errorf("xorriso error: %s", err)
 	}

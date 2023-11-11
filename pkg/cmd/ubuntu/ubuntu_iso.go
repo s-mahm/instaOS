@@ -73,13 +73,19 @@ func CreateInstaISO(filename string, version string, destination string, userdat
 		}
 		return files
 	}
-	if err = file.ReplaceTextInFiles(files_to_edit(tempdir, []string{"boot/grub/grub.cfg", "boot/grub/loopback.cfg"}), "---", `autoinstall ds=nocloud\;s=/cdrom/server/  ---`); err != nil {
+	if err = file.ReplaceTextInFiles(files_to_edit(tempdir, []string{"boot/grub/grub.cfg", "boot/grub/loopback.cfg"}), "---", `  autoinstall    quiet    ds=nocloud\;s=/cdrom/nocloud/  ---`); err != nil {
+		return fmt.Errorf("error editing iso files: %s", err)
+	}
+	if err = file.ReplaceTextInFiles(files_to_edit(tempdir, []string{"boot/grub/grub.cfg"}), "timeout=30", "timeout=1"); err != nil {
 		return fmt.Errorf("error editing iso files: %s", err)
 	}
 	if err = os.Mkdir(fmt.Sprintf("%s/nocloud", tempdir), os.ModePerm); err != nil {
 		return fmt.Errorf("creating nocloud dircetory")
 	}
 	if err = AddUserData(userdata, fmt.Sprintf("%s/nocloud", tempdir)); err != nil {
+		return err
+	}
+	if _, err = os.Create(fmt.Sprintf("%s/nocloud/meta-data", tempdir)); err != nil {
 		return err
 	}
 	if err = createISOFromDirectory(fmt.Sprintf("%s/%s", destination, filename), tempdir, fmt.Sprintf("%s/ubuntu-%s-autoinstall.iso", destination, version)); err != nil {
@@ -108,7 +114,7 @@ func extractISOToDirectory(filename string, source string, destination string) e
 }
 
 func createISOFromDirectory(reference string, source string, isoname string) error {
-	xorriso_create_args := "-as mkisofs -r -V \"UBUNTU-AUTOINSTALL\""
+	xorriso_create_args := "-as mkisofs -r -V \"ubuntu-autoinstall\""
 	xorriso_ref_args := fmt.Sprintf("-indev %s -report_el_torito as_mkisofs", reference)
 	cmd := exec.Command("xorriso", strings.Split(xorriso_ref_args, " ")...)
 	out, err := cmd.CombinedOutput()
@@ -127,8 +133,6 @@ func createISOFromDirectory(reference string, source string, isoname string) err
 	cmd = exec.Command("xorriso", strings.Split(xorriso_create_args, " ")...)
 	out, err = cmd.CombinedOutput()
 	if err != nil {
-		fmt.Println(cmd.Args)
-		fmt.Println(string(out))
 		return fmt.Errorf("xorriso error: %s", err)
 	}
 
@@ -140,7 +144,8 @@ func AddUserData(userdata UserData, destination string) error {
 	if err != nil {
 		return fmt.Errorf("marshaling user-data: %s", err)
 	}
-	err = os.WriteFile(fmt.Sprintf("%s/user-data", destination), userdata_yaml, 0755)
+	final_data := []byte("#cloud-config\n" + string(userdata_yaml))
+	err = os.WriteFile(fmt.Sprintf("%s/user-data", destination), final_data, 0755)
 	if err != nil {
 		return fmt.Errorf("writing to user-data: %s", err)
 	}

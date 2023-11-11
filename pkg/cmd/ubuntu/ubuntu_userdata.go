@@ -23,16 +23,6 @@ func DefaultUserData() UserData {
 		},
 		Layout: default_storage_layout,
 	}
-	default_network := Network{
-		Version: 2,
-		Ethernets: map[string]struct {
-			DHCP4 bool `yaml:"dhcp4"`
-		}{
-			"eth0": {
-				DHCP4: true,
-			},
-		},
-	}
 	default_identity := Identity{
 		Hostname: "instaos",
 		Username: "admin",
@@ -68,10 +58,7 @@ func DefaultUserData() UserData {
 		"vim",
 		"ubuntu-desktop-minimal",
 	}
-	default_earlycommands := []string{"echo '8.8.8.8' | tree /etc/resolv.conf"}
 	default_latecommands := []string{"shutdown -h now"}
-	_ = default_network
-	_ = default_earlycommands
 	default_autoinstall := Autoinstall{
 		Version:          1,
 		RefreshInstaller: nil,
@@ -83,8 +70,6 @@ func DefaultUserData() UserData {
 		SSH:              default_ssh,
 		Apt:              default_apt,
 		Packages:         default_packages,
-		PackageUpdate:    true,
-		PackageUpgrade:   true,
 		LateCommands:     default_latecommands,
 	}
 	return UserData{
@@ -109,8 +94,6 @@ type Autoinstall struct {
 	SSH              SSH         `yaml:"ssh,omitempty"`
 	Apt              Apt         `yaml:"apt,omitempty"`
 	Packages         []string    `yaml:"packages,omitempty"`
-	PackageUpdate    bool        `ymal:"package_update,omitempty"`
-	PackageUpgrade   bool        `ymal:"package_upgrade,omitempty"`
 	LateCommands     []string    `yaml:"late-commands,omitempty"`
 }
 

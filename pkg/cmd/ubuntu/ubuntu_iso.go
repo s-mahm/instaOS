@@ -1,18 +1,19 @@
 package ubuntu
 
 import (
+	"crypto/md5"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 
-	"gopkg.in/yaml.v3"
-
-	"github.com/s-mahm/instaOS/pkg/util/file"
+	"github.com/s-mahm/instaOS/pkg/util"
 	"github.com/s-mahm/instaOS/pkg/web"
+	"gopkg.in/yaml.v3"
 )
 
 const iso_base_url = "http://releases.ubuntu.com"
@@ -67,17 +68,18 @@ func CreateInstaISO(filename string, version string, destination string, userdat
 	if err = extractISOToDirectory(filename, destination, tempdir); err != nil {
 		return err
 	}
-	files_to_edit := func(prefix string, files []string) []string {
-		for i, filename := range files {
-			files[i] = fmt.Sprintf("%s/%s", prefix, filename)
-		}
-		return files
+	files_to_edit := []string{
+		fmt.Sprintf("%s/%s", tempdir, "boot/grub/grub.cfg"),
+		fmt.Sprintf("%s/%s", tempdir, "boot/grub/loopback.cfg"),
 	}
-	if err = file.ReplaceTextInFiles(files_to_edit(tempdir, []string{"boot/grub/grub.cfg", "boot/grub/loopback.cfg"}), "---", `  autoinstall    quiet    ds=nocloud\;s=/cdrom/nocloud/  ---`); err != nil {
+	if err = util.ReplaceTextInFiles(files_to_edit, "---", ` autoinstall   ds=nocloud\;s=/cdrom/nocloud/  ---`); err != nil {
 		return fmt.Errorf("error editing iso files: %s", err)
 	}
-	if err = file.ReplaceTextInFiles(files_to_edit(tempdir, []string{"boot/grub/grub.cfg"}), "timeout=30", "timeout=1"); err != nil {
+	if err = util.ReplaceTextInFiles(files_to_edit, "timeout=30", "timeout=1"); err != nil {
 		return fmt.Errorf("error editing iso files: %s", err)
+	}
+	if err = UpdateMD5(files_to_edit, fmt.Sprintf("%s/md5sum.txt", tempdir)); err != nil {
+		return fmt.Errorf("Updating MD5 checksum's of edited files")
 	}
 	if err = os.Mkdir(fmt.Sprintf("%s/nocloud", tempdir), os.ModePerm); err != nil {
 		return fmt.Errorf("creating nocloud dircetory")
@@ -136,6 +138,25 @@ func createISOFromDirectory(reference string, source string, isoname string) err
 		return fmt.Errorf("xorriso error: %s", err)
 	}
 
+	return nil
+}
+
+func UpdateMD5(changed_files []string, md5file string) error {
+	for _, changed := range changed_files {
+		boot_path := fmt.Sprintf("./%s", strings.Join(strings.Split(changed, "/")[2:], "/"))
+		file, err := os.Open(changed)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		hash := md5.New()
+		_, err = io.Copy(hash, file)
+		if err != nil {
+			return err
+		}
+		replacement_line := fmt.Sprintf("%x  %s", hash.Sum(nil), boot_path)
+		util.ReplaceLineInFiles([]string{md5file}, fmt.Sprintf(".*%s", boot_path), replacement_line)
+	}
 	return nil
 }
 

@@ -10,7 +10,7 @@ import (
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/ProtonMail/go-crypto/openpgp/packet"
-	hkp "github.com/s-mahm/instaOS/pkg/util/openpgp-hkp"
+	hkp "github.com/emersion/go-openpgp-hkp"
 	"github.com/s-mahm/instaOS/pkg/web"
 	"github.com/schollz/progressbar/v3"
 )
